@@ -15,6 +15,7 @@ contract Spectre {
     using StepLib for StepLib.StepInput;
 
     uint256 internal immutable SLOTS_PER_PERIOD;
+    uint16 public immutable FINALITY_THRESHOLD;
 
     /// Maps from a sync period to the poseidon commitment for the sync committee.
     mapping(uint256 => uint256) public syncCommitteePoseidons;
@@ -36,7 +37,8 @@ contract Spectre {
         address _committeeUpdateVerifierAddress,
         uint256 _initialSyncPeriod,
         uint256 _initialSyncCommitteePoseidon,
-        uint256 _slotsPerPeriod
+        uint256 _slotsPerPeriod,
+        uint16 _finalityThreshold
     ) {
         stepVerifierAddress = _stepVerifierAddress;
         rotateVerifierAddress = _committeeUpdateVerifierAddress;
@@ -44,6 +46,7 @@ contract Spectre {
             _initialSyncPeriod
         ] = _initialSyncCommitteePoseidon;
         SLOTS_PER_PERIOD = _slotsPerPeriod;
+        FINALITY_THRESHOLD = _finalityThreshold;
     }
 
     /// @notice Verify that a sync committee has attested to a block that finalizes the given header root and execution payload
@@ -61,6 +64,11 @@ contract Spectre {
         );
 
         _verifyStepProof(input, proof, syncCommitteePoseidons[currentPeriod]);
+
+        require(
+            input.participation >= FINALITY_THRESHOLD,
+            "Insufficient participation"
+        );
 
         // update the contract state
         executionPayloadRoots[input.finalizedSlot] = input.executionPayloadRoot;
@@ -94,6 +102,11 @@ contract Spectre {
             stepInput,
             stepProof,
             syncCommitteePoseidons[attestingPeriod]
+        );
+
+        require(
+            stepInput.participation >= FINALITY_THRESHOLD,
+            "Insufficient participation"
         );
 
         // *rotation phase*
