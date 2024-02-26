@@ -4,9 +4,7 @@
 
 pragma solidity ^0.8.0;
 
-import {SyncStepLib} from "./SyncStepLib.sol";
-import {SyncStepCompressedVerifier} from "./interfaces/SyncStepVerifier.sol";
-import {CommitteeUpdateVerifier} from "./interfaces/CommitteeUpdateVerifier.sol";
+import {StepLib} from "./StepLib.sol";
 
 struct RotateData {
     uint256 newSyncCommitteePoseidon;
@@ -14,7 +12,7 @@ struct RotateData {
 }
 
 contract Spectre {
-    using SyncStepLib for SyncStepLib.SyncStepInput;
+    using StepLib for StepLib.StepInput;
 
     uint256 internal immutable SLOTS_PER_PERIOD;
 
@@ -31,7 +29,7 @@ contract Spectre {
     uint256 public head = 0;
 
     address public stepVerifierAddress;
-    address public committeeUpdateVerifierAddress;
+    address public rotateVerifierAddress;
 
     constructor(
         address _stepVerifierAddress,
@@ -41,7 +39,7 @@ contract Spectre {
         uint256 _slotsPerPeriod
     ) {
         stepVerifierAddress = _stepVerifierAddress;
-        committeeUpdateVerifierAddress = _committeeUpdateVerifierAddress;
+        rotateVerifierAddress = _committeeUpdateVerifierAddress;
         syncCommitteePoseidons[
             _initialSyncPeriod
         ] = _initialSyncCommitteePoseidon;
@@ -52,16 +50,17 @@ contract Spectre {
     /// @param input The input to the sync step. Defines the slot and attestation to verify
     /// @param proof The proof for the sync step
     function step(
-        SyncStepLib.SyncStepInput calldata input,
+        StepLib.StepInput calldata input,
         bytes calldata proof
     ) external {
         uint256 currentPeriod = _getSyncCommitteePeriod(input.attestedSlot);
 
-        if (syncCommitteePoseidons[currentPeriod] == 0) {
-            revert("Sync committee not yet set for this period");
-        }
+        require(
+            syncCommitteePoseidons[currentPeriod] != 0,
+            "Sync committee not yet set for this period"
+        );
 
-        _verifyStep(input, proof, syncCommitteePoseidons[currentPeriod]);
+        _verifyStepProof(input, proof, syncCommitteePoseidons[currentPeriod]);
 
         // update the contract state
         executionPayloadRoots[input.finalizedSlot] = input.executionPayloadRoot;
@@ -75,7 +74,7 @@ contract Spectre {
     /// @param stepProof The proof for the sync step
     function rotate(
         bytes calldata rotateProof,
-        SyncStepLib.SyncStepInput calldata stepInput,
+        StepLib.StepInput calldata stepInput,
         bytes calldata stepProof
     ) external {
         // *step phase*
@@ -86,11 +85,12 @@ contract Spectre {
             stepInput.attestedSlot
         );
 
-        if (syncCommitteePoseidons[attestingPeriod] == 0) {
-            revert("Sync committee not yet set for this period");
-        }
+        require(
+            syncCommitteePoseidons[attestingPeriod] != 0,
+            "Sync committee not yet set for this period"
+        );
 
-        _verifyStep(
+        _verifyStepProof(
             stepInput,
             stepProof,
             syncCommitteePoseidons[attestingPeriod]
@@ -104,11 +104,12 @@ contract Spectre {
         );
         uint256 nextPeriod = currentPeriod + 1;
 
-        RotateData memory rotateData = _verifyRotate(rotateProof);
+        RotateData memory rotateData = _verifyRotateProof(rotateProof);
 
-        if (rotateData.finalizedHeaderRoot != stepInput.finalizedHeaderRoot) {
-            revert("Invalid finalized header root");
-        }
+        require(
+            rotateData.finalizedHeaderRoot == stepInput.finalizedHeaderRoot,
+            "Invalid finalized header root"
+        );
 
         // update the contract state
         syncCommitteePoseidons[nextPeriod] = rotateData
@@ -121,8 +122,8 @@ contract Spectre {
         return slot / SLOTS_PER_PERIOD;
     }
 
-    function _verifyStep(
-        SyncStepLib.SyncStepInput calldata input,
+    function _verifyStepProof(
+        StepLib.StepInput calldata input,
         bytes calldata proof,
         uint256 syncCommitteePoseidon
     ) internal {
@@ -154,7 +155,7 @@ contract Spectre {
         }
     }
 
-    function _verifyRotate(
+    function _verifyRotateProof(
         bytes calldata proof
     ) internal returns (RotateData memory rotateData) {
         //  The public instances are laid out in the proof calldata as follows:
@@ -167,11 +168,11 @@ contract Spectre {
             bytes32(proof[384:384 + 32])
         );
         rotateData.finalizedHeaderRoot = bytes32(
-            (uint256(bytes32(proof[384 + 32:384 + 2 * 32])) << 128) |
-                uint256(bytes32(proof[384 + 2 * 32:384 + 3 * 32]))
+            (uint256(bytes32(proof[384 + 32:384 + 2 * 32]))) |
+                uint256(bytes32(proof[384 + 2 * 32:384 + 3 * 32]) << 128) // parse into lo-hi form
         );
 
-        (bool success, ) = committeeUpdateVerifierAddress.call(proof);
+        (bool success, ) = rotateVerifierAddress.call(proof);
         if (!success) {
             revert("Rotate proof verification failed");
         }

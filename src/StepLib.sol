@@ -6,8 +6,8 @@ pragma solidity ^0.8.0;
 
 import { EndianConversions } from "./EndianConversions.sol";
 
-library SyncStepLib {
-    struct SyncStepInput {
+library StepLib {
+    struct StepInput {
         uint64 attestedSlot;
         uint64 finalizedSlot;
         uint64 participation;
@@ -21,7 +21,7 @@ library SyncStepLib {
     * @param args The arguments for the sync step
     * @return The public input commitment that can be sent to the verifier contract.
      */
-    function toPublicInputsCommitment(SyncStepInput memory args) internal pure returns (uint256) {
+    function toPublicInputsCommitment(StepInput memory args) internal pure returns (uint256) {
         bytes32 h = sha256(abi.encodePacked(
             EndianConversions.toLittleEndian64(args.attestedSlot),
             EndianConversions.toLittleEndian64(args.finalizedSlot),
