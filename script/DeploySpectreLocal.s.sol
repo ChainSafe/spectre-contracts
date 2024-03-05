@@ -18,20 +18,15 @@ contract DeploySpectre is Script {
             "INITIAL_COMMITTEE_POSEIDON"
         );
         uint256 slotsPerPeriod = vm.envUint("SLOTS_PER_PERIOD");
+        uint16 finalityThreshold = uint16(vm.envUint("FINALITY_THRESHOLD"));
 
         vm.startBroadcast(deployerPrivateKey);
 
         SyncStepVerifier stepVerifier = new SyncStepVerifier();
         CommitteeUpdateVerifier updateVerifier = new CommitteeUpdateVerifier();
 
-        new Spectre(
-            address(stepVerifier),
-            address(updateVerifier),
-            initialSyncPeriod,
-            initialCommitteePoseidon,
-            slotsPerPeriod
-        );
-
+        new Spectre(address(stepVerifier), address(updateVerifier), initialSyncPeriod, initialCommitteePoseidon, slotsPerPeriod, finalityThreshold);
+        
         vm.stopBroadcast();
     }
 }
