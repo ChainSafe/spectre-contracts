@@ -16,6 +16,8 @@ contract Spectre {
 
     uint256 internal immutable SLOTS_PER_PERIOD;
 
+    uint256 internal constant MIN_SYNC_COMMITTEE_PARTICIPANTS = 10;
+
     /// Maps from a sync period to the poseidon commitment for the sync committee.
     mapping(uint256 => uint256) public syncCommitteePoseidons;
 
@@ -58,6 +60,11 @@ contract Spectre {
         require(
             syncCommitteePoseidons[currentPeriod] != 0,
             "Sync committee not yet set for this period"
+        );
+
+        require(
+            input.participation > MIN_SYNC_COMMITTEE_PARTICIPANTS,
+            "Less than MIN_SYNC_COMMITTEE_PARTICIPANTS signed"
         );
 
         _verifyStepProof(input, proof, syncCommitteePoseidons[currentPeriod]);
