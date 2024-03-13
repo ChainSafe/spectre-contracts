@@ -26,11 +26,18 @@ contract Spectre {
     /// Maps from a slot to the current finalized ethereum1 execution state root.
     mapping(uint256 => bytes32) public executionPayloadRoots;
 
-    /// The highest slot that has been verified
-    uint256 public head = 0;
 
     address public stepVerifierAddress;
     address public rotateVerifierAddress;
+
+    error SyncCommitteeAlreadySet();
+    error ExecutionPayloadRootAlreadySet();
+    error BlockHeaderRootAlreadySet();
+    error SyncCommiteeNotYetSetForPeriod();
+    error InsufficientParticipation();
+    error InvalidFinalizedHeaderRoot();
+    error InvalidPublicInputsCommitment();
+    error InvalidSyncComitee();
 
     constructor(
         address _stepVerifierAddress,
@@ -58,22 +65,17 @@ contract Spectre {
     ) external {
         uint256 currentPeriod = _getSyncCommitteePeriod(input.attestedSlot);
 
-        require(
-            syncCommitteePoseidons[currentPeriod] != 0,
-            "Sync committee not yet set for this period"
-        );
+        if (syncCommitteePoseidons[currentPeriod] == 0) revert SyncCommiteeNotYetSetForPeriod();
+        if (executionPayloadRoots[input.finalizedSlot] != bytes32(0)) revert ExecutionPayloadRootAlreadySet();
+        if (blockHeaderRoots[input.finalizedSlot] != bytes32(0)) revert BlockHeaderRootAlreadySet();
 
         _verifyStepProof(input, proof, syncCommitteePoseidons[currentPeriod]);
 
-        require(
-            input.participation >= FINALITY_THRESHOLD,
-            "Insufficient participation"
-        );
+        if (input.participation < FINALITY_THRESHOLD) revert InsufficientParticipation();
 
         // update the contract state
         executionPayloadRoots[input.finalizedSlot] = input.executionPayloadRoot;
         blockHeaderRoots[input.finalizedSlot] = input.finalizedHeaderRoot;
-        head = input.finalizedSlot;
     }
 
     /// @notice Use the current sync committee to verify the transition to a new sync committee
@@ -93,22 +95,6 @@ contract Spectre {
             stepInput.attestedSlot
         );
 
-        require(
-            syncCommitteePoseidons[attestingPeriod] != 0,
-            "Sync committee not yet set for this period"
-        );
-
-        _verifyStepProof(
-            stepInput,
-            stepProof,
-            syncCommitteePoseidons[attestingPeriod]
-        );
-
-        require(
-            stepInput.participation >= FINALITY_THRESHOLD,
-            "Insufficient participation"
-        );
-
         // *rotation phase*
         // This proof checks that the given poseidon commitment and SSZ commitment to the sync committee are equivalent and that
         // that there exists an SSZ proof that can verify this SSZ commitment to the committee is in the state
@@ -116,13 +102,20 @@ contract Spectre {
             stepInput.finalizedSlot
         );
         uint256 nextPeriod = currentPeriod + 1;
+        if (syncCommitteePoseidons[nextPeriod] != 0) revert SyncCommitteeAlreadySet();
+        if (syncCommitteePoseidons[attestingPeriod] != 0) revert SyncCommiteeNotYetSetForPeriod();
+
+        _verifyStepProof(
+            stepInput,
+            stepProof,
+            syncCommitteePoseidons[attestingPeriod]
+        );
+
+        if (stepInput.participation < FINALITY_THRESHOLD) revert InsufficientParticipation();
 
         RotateData memory rotateData = _verifyRotateProof(rotateProof);
 
-        require(
-            rotateData.finalizedHeaderRoot == stepInput.finalizedHeaderRoot,
-            "Invalid finalized header root"
-        );
+        if (rotateData.finalizedHeaderRoot != stepInput.finalizedHeaderRoot) revert InvalidFinalizedHeaderRoot();
 
         // update the contract state
         syncCommitteePoseidons[nextPeriod] = rotateData
@@ -152,15 +145,9 @@ contract Spectre {
             bytes32(proof[384 + 32:384 + 2 * 32])
         );
 
-        require(
-            _publicInputsCommitment == publicInputsCommitment,
-            "Invalid public inputs commitment"
-        );
+        if (_publicInputsCommitment == publicInputsCommitment) revert InvalidPublicInputsCommitment();
 
-        require(
-            _syncCommitteePoseidon == syncCommitteePoseidon,
-            "Invalid sync committee poseidon"
-        );
+        if (_syncCommitteePoseidon == syncCommitteePoseidon) revert InvalidSyncComitee();
 
         (bool success, ) = stepVerifierAddress.call(proof);
         if (!success) {
