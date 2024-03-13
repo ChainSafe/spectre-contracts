@@ -145,9 +145,9 @@ contract Spectre {
             bytes32(proof[384 + 32:384 + 2 * 32])
         );
 
-        if (_publicInputsCommitment == publicInputsCommitment) revert InvalidPublicInputsCommitment();
+        if (_publicInputsCommitment != publicInputsCommitment) revert InvalidPublicInputsCommitment();
 
-        if (_syncCommitteePoseidon == syncCommitteePoseidon) revert InvalidSyncComitee();
+        if (_syncCommitteePoseidon != syncCommitteePoseidon) revert InvalidSyncComitee();
 
         (bool success, ) = stepVerifierAddress.call(proof);
         if (!success) {
