@@ -103,7 +103,7 @@ contract Spectre {
         );
         uint256 nextPeriod = currentPeriod + 1;
         if (syncCommitteePoseidons[nextPeriod] != 0) revert SyncCommitteeAlreadySet();
-        if (syncCommitteePoseidons[attestingPeriod] != 0) revert SyncCommiteeNotYetSetForPeriod();
+        if (syncCommitteePoseidons[attestingPeriod] == 0) revert SyncCommiteeNotYetSetForPeriod();
 
         _verifyStepProof(
             stepInput,
