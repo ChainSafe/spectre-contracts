@@ -23,7 +23,7 @@ contract Spectre {
     /// Maps from a slot to a beacon block header root.
     mapping(uint256 => bytes32) public blockHeaderRoots;
 
-    /// Maps from a slot to the current finalized ethereum1 execution state root.
+    /// Maps from a slot to the execution payload root inside a beacon block.
     mapping(uint256 => bytes32) public executionPayloadRoots;
 
     /// The highest slot that has been verified
