@@ -38,6 +38,8 @@ contract Spectre {
     error InvalidFinalizedHeaderRoot();
     error InvalidPublicInputsCommitment();
     error InvalidSyncComitee();
+    error StepProofVerificationFailed();
+    error RotateProofVerificationFailed();
 
     constructor(
         address _stepVerifierAddress,
@@ -151,7 +153,7 @@ contract Spectre {
 
         (bool success, ) = stepVerifierAddress.call(proof);
         if (!success) {
-            revert("Step proof verification failed");
+            revert StepProofVerificationFailed();
         }
     }
 
@@ -174,7 +176,7 @@ contract Spectre {
 
         (bool success, ) = rotateVerifierAddress.call(proof);
         if (!success) {
-            revert("Rotate proof verification failed");
+            revert RotateProofVerificationFailed();
         }
     }
 }
