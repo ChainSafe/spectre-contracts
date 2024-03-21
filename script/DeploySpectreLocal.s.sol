@@ -7,8 +7,8 @@ pragma solidity ^0.8.0;
 import "forge-std/Script.sol";
 
 import {Spectre} from "../src/Spectre.sol";
-import {Halo2Verifier as CommitteeUpdateVerifier} from "../snark-verifiers/committee_update_verifier.sol";
-import {Halo2Verifier as SyncStepVerifier} from "../snark-verifiers/sync_step_verifier.sol";
+import {Halo2Verifier as CommitteeUpdateVerifier} from "../snark-verifiers/testnet/committee_update_verifier.sol";
+import {Halo2Verifier as SyncStepVerifier} from "../snark-verifiers/testnet/sync_step_verifier.sol";
 
 contract DeploySpectre is Script {
     function run() external {
