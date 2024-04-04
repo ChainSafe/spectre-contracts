@@ -6,8 +6,8 @@
 #![feature(generic_const_exprs)]
 use ethers::contract::abigen;
 use lightclient_circuits::witness::SyncStepArgs;
-use ssz_rs::Merkleized;
-use std::ops::Deref;
+use tree_hash::TreeHash;
+
 abigen!(
     Spectre,
     "./out/Spectre.sol/Spectre.json";
@@ -28,20 +28,13 @@ impl<Spec: eth_types::Spec> From<SyncStepArgs<Spec>> for StepInput {
             .map(|v| *v as u64)
             .sum::<u64>();
 
-        let finalized_header_root: [u8; 32] = args
-            .finalized_header
-            .clone()
-            .hash_tree_root()
-            .unwrap()
-            .deref()
-            .try_into()
-            .unwrap();
+        let finalized_header_root: [u8; 32] = args.finalized_header.tree_hash_root().0;
 
         let execution_payload_root: [u8; 32] = args.execution_payload_root.try_into().unwrap();
 
         StepInput {
-            attested_slot: args.attested_header.slot,
-            finalized_slot: args.finalized_header.slot,
+            attested_slot: args.attested_header.slot.into(),
+            finalized_slot: args.finalized_header.slot.into(),
             participation,
             finalized_header_root,
             execution_payload_root,
