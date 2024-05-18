@@ -17,6 +17,8 @@ contract Spectre {
     uint256 internal immutable SLOTS_PER_PERIOD;
     uint16 public immutable FINALITY_THRESHOLD;
 
+    uint256 internal constant MIN_SYNC_COMMITTEE_PARTICIPANTS = 10;
+
     /// Maps from a sync period to the poseidon commitment for the sync committee.
     mapping(uint256 => uint256) public syncCommitteePoseidons;
 
@@ -70,6 +72,11 @@ contract Spectre {
         if (syncCommitteePoseidons[currentPeriod] == 0) revert SyncCommiteeNotYetSetForPeriod();
         if (executionPayloadRoots[input.finalizedSlot] != bytes32(0)) revert ExecutionPayloadRootAlreadySet();
         if (blockHeaderRoots[input.finalizedSlot] != bytes32(0)) revert BlockHeaderRootAlreadySet();
+
+        require(
+            input.participation > MIN_SYNC_COMMITTEE_PARTICIPANTS,
+            "Less than MIN_SYNC_COMMITTEE_PARTICIPANTS signed"
+        );
 
         _verifyStepProof(input, proof, syncCommitteePoseidons[currentPeriod]);
 
